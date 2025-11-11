@@ -20,15 +20,16 @@ import {
 import { NFTService } from "./nft.service";
 import { CreateNFTDto } from "./dto/create-nft.dto";
 import { UpdateNFTDto } from "./dto/update-nft.dto";
-import { TransferNFTDto } from "./dto/transfer-nft.dto";
 import { ConfirmTxDto } from "./dto/confirm-tx.dto";
-import { NFT } from "../common/entities";
+import { ListNFTDto } from "./dto/list-nft.dto";
+import { ConfirmPurchaseDto } from "./dto/confirm-purchase.dto";
+import { NFT, NFTEvent, NFTEventType } from "@/common/entities";
 import {
   PaginationDto,
   PaginatedResponseDto,
-} from "../common/dto/pagination.dto";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { CollectionService } from "../collection/collection.service";
+} from "@/common/dto/pagination.dto";
+import { JwtAuthGuard } from "@/auth/guards/jwt-auth.guard";
+import { CollectionService } from "@/collection/collection.service";
 
 @ApiTags("NFTs")
 @Controller("nft")
@@ -94,29 +95,37 @@ export class NFTController {
     return this.nftService.findForSale();
   }
 
+  @Get("user/:userId")
+  @ApiOperation({ summary: "Get NFTs by user ID (public)" })
+  @ApiResponse({
+    status: 200,
+    description: "List of user's NFTs with pagination",
+    type: PaginatedResponseDto<NFT>,
+  })
+  async findByUser(
+    @Param("userId", ParseIntPipe) userId: number,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<NFT>> {
+    return this.nftService.findByOwnerWithPagination(userId, paginationDto);
+  }
+
   @Get("my-nfts")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get current user's NFTs" })
-  @ApiResponse({ status: 200, description: "List of user's NFTs", type: [NFT] })
-  async findMyNFTs(@Request() req): Promise<NFT[]> {
-    return this.nftService.findByOwner(req.user.id);
-  }
-
-  @Get("history/sales")
-  @ApiOperation({ summary: "Get all sale transactions" })
-  @ApiResponse({ status: 200, description: "List of all sale transactions" })
-  async getSaleHistory() {
-    return this.nftService.getSaleHistory();
-  }
-
-  @Get("my-history")
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Get current user's transaction history" })
-  @ApiResponse({ status: 200, description: "User's transaction history" })
-  async getUserHistory(@Request() req) {
-    return this.nftService.getUserTransactionHistory(req.user.id);
+  @ApiOperation({ summary: "Get current user's NFTs with pagination" })
+  @ApiResponse({
+    status: 200,
+    description: "List of user's NFTs with pagination",
+    type: PaginatedResponseDto<NFT>,
+  })
+  async findMyNFTs(
+    @Request() req,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<NFT>> {
+    return this.nftService.findByOwnerWithPagination(
+      req.user.id,
+      paginationDto
+    );
   }
 
   @Get("collections-for-creation")
@@ -173,52 +182,6 @@ export class NFTController {
     return { message: "NFT deleted successfully" };
   }
 
-  @Get(":id/history")
-  @ApiOperation({ summary: "Get NFT transaction history" })
-  @ApiResponse({ status: 200, description: "NFT transaction history" })
-  @ApiResponse({ status: 404, description: "NFT not found" })
-  async getNFTHistory(@Param("id", ParseIntPipe) id: number) {
-    return this.nftService.getNFTHistory(id);
-  }
-
-  @Post(":id/transfer")
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Buy/Transfer NFT from another user" })
-  @ApiResponse({ status: 200, description: "NFT purchased successfully" })
-  @ApiResponse({
-    status: 403,
-    description: "Forbidden - not owner or NFT not for sale",
-  })
-  @ApiResponse({ status: 404, description: "NFT or user not found" })
-  async transferNFT(
-    @Param("id", ParseIntPipe) id: number,
-    @Body() transferData: TransferNFTDto,
-    @Request() req
-  ) {
-    await this.nftService.transferNFT(
-      id,
-      req.user.id,
-      transferData.toUserId,
-      transferData.transactionHash
-    );
-    return { message: "NFT purchased successfully" };
-  }
-
-  @Post(":id/confirm-transfer")
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Confirm on-chain transfer and sync DB" })
-  @ApiResponse({ status: 200, description: "Transfer confirmed and synced" })
-  async confirmTransfer(
-    @Param("id", ParseIntPipe) id: number,
-    @Body() body: ConfirmTxDto,
-    @Request() req
-  ) {
-    await this.nftService.confirmTransfer(id, req.user.id, body.txHash);
-    return { message: "Transfer confirmed" };
-  }
-
   @Post(":id/confirm-mint")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -231,5 +194,137 @@ export class NFTController {
   ) {
     await this.nftService.confirmMint(id, req.user.id, body.txHash);
     return { message: "Mint confirmed" };
+  }
+
+  @Post(":id/list")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Confirm on-chain listing and sync DB" })
+  @ApiResponse({ status: 200, description: "Listing confirmed and synced" })
+  async confirmList(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() body: ListNFTDto & ConfirmTxDto,
+    @Request() req
+  ) {
+    await this.nftService.confirmList(id, req.user.id, body.txHash, body.price);
+    return { message: "Listing confirmed" };
+  }
+
+  @Post(":id/unlist")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Confirm on-chain unlisting and sync DB" })
+  @ApiResponse({ status: 200, description: "Unlisting confirmed and synced" })
+  async confirmUnlist(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() body: ConfirmTxDto,
+    @Request() req
+  ) {
+    await this.nftService.confirmUnlist(id, req.user.id, body.txHash);
+    return { message: "Unlisting confirmed" };
+  }
+
+  @Post(":id/sync-listing")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Sync listing status from blockchain to database",
+    description:
+      "Useful when SC and DB are out of sync. Checks SC state and updates DB accordingly.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Listing status synced successfully",
+  })
+  async syncListingStatus(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req
+  ) {
+    const result = await this.nftService.syncListingStatus(id, req.user.id);
+    return {
+      message: "Listing status synced",
+      isListed: result.isListed,
+      price: result.price,
+    };
+  }
+
+  @Post(":id/confirm-purchase")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Confirm NFT purchase from on-chain transaction",
+    description: "Updates NFT owner and marks NFT as unlisted after purchase.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Purchase confirmed successfully",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Invalid transaction or NFT not minted",
+  })
+  @ApiResponse({
+    status: 403,
+    description: "Transaction receipt does not match expected purchase",
+  })
+  async confirmPurchase(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() body: ConfirmPurchaseDto,
+    @Request() req
+  ) {
+    await this.nftService.confirmPurchase(id, req.user.id, body.txHash);
+    return { message: "Purchase confirmed successfully" };
+  }
+
+  @Get(":id/events")
+  @ApiOperation({ summary: "Get NFT events by NFT ID" })
+  @ApiResponse({
+    status: 200,
+    description: "List of NFT events with pagination",
+    type: PaginatedResponseDto<NFTEvent>,
+  })
+  @ApiResponse({ status: 404, description: "NFT not found" })
+  async getNFTEvents(
+    @Param("id", ParseIntPipe) id: number,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<NFTEvent>> {
+    // Verify NFT exists
+    await this.nftService.findOne(id);
+    return this.nftService.getNFTEvents(id, paginationDto) as Promise<
+      PaginatedResponseDto<NFTEvent>
+    >;
+  }
+
+  @Get("events/address/:address")
+  @ApiOperation({ summary: "Get NFT events by wallet address (public)" })
+  @ApiResponse({
+    status: 200,
+    description: "List of NFT events for the address with pagination",
+    type: PaginatedResponseDto<NFTEvent>,
+  })
+  async getEventsByAddress(
+    @Param("address") address: string,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<NFTEvent>> {
+    return this.nftService.getEventsByAddress(
+      address,
+      paginationDto
+    ) as Promise<PaginatedResponseDto<NFTEvent>>;
+  }
+
+  @Get("events/type/:eventType")
+  @ApiOperation({ summary: "Get NFT events by event type (public)" })
+  @ApiResponse({
+    status: 200,
+    description: "List of NFT events by type with pagination",
+    type: PaginatedResponseDto<NFTEvent>,
+  })
+  async getEventsByType(
+    @Param("eventType") eventType: NFTEventType,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<NFTEvent>> {
+    return this.nftService.getEventsByType(eventType, paginationDto) as Promise<
+      PaginatedResponseDto<NFTEvent>
+    >;
   }
 }

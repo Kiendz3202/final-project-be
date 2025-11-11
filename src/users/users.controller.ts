@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   ParseIntPipe,
+  NotFoundException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -18,11 +19,11 @@ import {
 import { UsersService } from "./users.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { User, UserRole } from "../common/entities";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { OwnerOrAdminGuard } from "../auth/guards/owner-or-admin.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
+import { User, UserRole } from "@/common/entities";
+import { JwtAuthGuard } from "@/auth/guards/jwt-auth.guard";
+import { RolesGuard } from "@/auth/guards/roles.guard";
+import { OwnerOrAdminGuard } from "@/auth/guards/owner-or-admin.guard";
+import { Roles } from "@/auth/decorators/roles.decorator";
 
 @ApiTags("Users")
 @Controller("users")
@@ -62,6 +63,23 @@ export class UsersController {
   @ApiResponse({ status: 200, description: "User statistics" })
   async getStats(): Promise<any> {
     return this.usersService.getUserStats();
+  }
+
+  @Get("wallet/:walletAddress")
+  @ApiOperation({ summary: "Get user by wallet address (public)" })
+  @ApiResponse({ status: 200, description: "User found", type: User })
+  @ApiResponse({ status: 404, description: "User not found" })
+  async findByWalletAddress(
+    @Param("walletAddress") walletAddress: string
+  ): Promise<User> {
+    const user = await this.usersService.findByWalletAddress(walletAddress);
+    if (!user) {
+      throw new NotFoundException(
+        `User with wallet address ${walletAddress} not found`
+      );
+    }
+    // Return user with same fields as findOne
+    return this.usersService.findOne(user.id);
   }
 
   @Get(":id")

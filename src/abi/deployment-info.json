@@ -1,0 +1,10 @@
+{
+  "network": "bscTestnet",
+  "chainId": 97,
+  "deployer": "0xc2039Cb1eBbA707Ac2a179DE11Af04495405b82f",
+  "timestamp": "2025-11-05T14:05:21.834Z",
+  "contracts": {
+    "NFTMarketplace": "0xFE1342D0A304f45642B6F9Fc79f61245eB599c78",
+    "SampleCollection": "0xFa9fa02b6Db96ecb0385Cba2EC0f11172671Dda9"
+  }
+}

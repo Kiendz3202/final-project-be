@@ -16,14 +16,14 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { AdminGuard } from "../auth/guards/admin.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
-import { UserRole } from "../common/entities";
-import { PaginationDto } from "../common/dto/pagination.dto";
-import { UsersService } from "../users/users.service";
-import { NFTService } from "../nft/nft.service";
+import { JwtAuthGuard } from "@/auth/guards/jwt-auth.guard";
+import { AdminGuard } from "@/auth/guards/admin.guard";
+import { RolesGuard } from "@/auth/guards/roles.guard";
+import { Roles } from "@/auth/decorators/roles.decorator";
+import { UserRole } from "@/common/entities";
+import { PaginationDto } from "@/common/dto/pagination.dto";
+import { UsersService } from "@/users/users.service";
+import { NFTService } from "@/nft/nft.service";
 
 @ApiTags("Admin")
 @Controller("admin")

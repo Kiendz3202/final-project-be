@@ -70,6 +70,7 @@ export class S3Service {
       "image/png",
       "image/gif",
       "image/webp",
+      "image/avif",
       "application/json",
     ];
     return allowedTypes.includes(fileType.toLowerCase());

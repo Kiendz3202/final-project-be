@@ -5,8 +5,8 @@ import {
 } from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { User, UserRole } from "../common/entities";
-import { UserRepository } from "../common/repositories";
+import { User, UserRole } from "@/common/entities";
+import { UserRepository } from "@/common/repositories";
 
 @Injectable()
 export class UsersService {
@@ -62,6 +62,7 @@ export class UsersService {
         "role",
         "description",
         "avatar",
+        "banner",
         "facebookUrl",
         "instagramUrl",
         "youtubeUrl",
@@ -115,6 +116,7 @@ export class UsersService {
         "role",
         "description",
         "avatar",
+        "banner",
         "facebookUrl",
         "instagramUrl",
         "youtubeUrl",

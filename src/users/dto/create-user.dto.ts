@@ -6,7 +6,7 @@ import {
   IsUrl,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
-import { UserRole } from "../../common/entities";
+import { UserRole } from "@/common/entities";
 
 export class CreateUserDto {
   @ApiProperty({
@@ -49,9 +49,16 @@ export class CreateUserDto {
     example: "https://example.com/avatar.jpg",
     required: false,
   })
-  @IsUrl()
   @IsOptional()
   avatar?: string;
+
+  @ApiProperty({
+    description: "User banner URL",
+    example: "https://example.com/banner.jpg",
+    required: false,
+  })
+  @IsOptional()
+  banner?: string;
 
   @ApiProperty({
     description: "Facebook profile URL",

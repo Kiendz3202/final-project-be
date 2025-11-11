@@ -33,6 +33,11 @@ export class VerifyResponseDto {
       username: { type: "string" },
       role: { type: "string" },
       description: { type: "string" },
+      avatar: { type: "string" },
+      banner: { type: "string" },
+      facebookUrl: { type: "string" },
+      instagramUrl: { type: "string" },
+      youtubeUrl: { type: "string" },
       createdAt: { type: "string" },
       updatedAt: { type: "string" },
     },
@@ -43,6 +48,11 @@ export class VerifyResponseDto {
     username?: string;
     role: string;
     description?: string;
+    avatar?: string;
+    banner?: string;
+    facebookUrl?: string;
+    instagramUrl?: string;
+    youtubeUrl?: string;
     createdAt: string;
     updatedAt: string;
   };

@@ -2,15 +2,15 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { JwtModule } from "@nestjs/jwt";
-import configuration from "./config/configuration";
-import { AuthModule } from "./auth/auth.module";
-import { UsersModule } from "./users/users.module";
-import { NFTModule } from "./nft/nft.module";
-import { CollectionModule } from "./collection/collection.module";
-import { UploadModule } from "./upload/upload.module";
-import { AdminModule } from "./admin/admin.module";
-import { RedisModule } from "./redis/redis.module";
-import { User, NFT, NFTHistory, Collection } from "./common/entities";
+import configuration from "@/config/configuration";
+import { AuthModule } from "@/auth/auth.module";
+import { UsersModule } from "@/users/users.module";
+import { NFTModule } from "@/nft/nft.module";
+import { CollectionModule } from "@/collection/collection.module";
+import { UploadModule } from "@/upload/upload.module";
+import { AdminModule } from "@/admin/admin.module";
+import { RedisModule } from "@/redis/redis.module";
+import { User, NFT, Collection, NFTEvent } from "@/common/entities";
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { User, NFT, NFTHistory, Collection } from "./common/entities";
         username: configService.get("database.username"),
         password: configService.get("database.password"),
         database: configService.get("database.name"),
-        entities: [User, NFT, NFTHistory, Collection],
+        entities: [User, NFT, Collection, NFTEvent],
         synchronize: true, // Don't use in production
         logging: true,
       }),

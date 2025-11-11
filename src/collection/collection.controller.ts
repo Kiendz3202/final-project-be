@@ -20,13 +20,13 @@ import {
 import { CollectionService } from "./collection.service";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { ConfirmTxDto } from "../nft/dto/confirm-tx.dto";
-import { Collection } from "../common/entities";
+import { ConfirmTxDto } from "@/nft/dto/confirm-tx.dto";
+import { Collection } from "@/common/entities";
 import {
   PaginationDto,
   PaginatedResponseDto,
-} from "../common/dto/pagination.dto";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+} from "@/common/dto/pagination.dto";
+import { JwtAuthGuard } from "@/auth/guards/jwt-auth.guard";
 
 @ApiTags("Collections")
 @Controller("collections")
@@ -66,14 +66,20 @@ export class CollectionController {
   @Get("my-collections")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get current user's collections" })
+  @ApiOperation({ summary: "Get current user's collections with pagination" })
   @ApiResponse({
     status: 200,
-    description: "List of user's collections",
-    type: [Collection],
+    description: "List of user's collections with pagination",
+    type: PaginatedResponseDto<Collection>,
   })
-  async findMyCollections(@Request() req): Promise<Collection[]> {
-    return this.collectionService.findByCreator(req.user.id);
+  async findMyCollections(
+    @Request() req,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<Collection>> {
+    return this.collectionService.findByCreatorWithPagination(
+      req.user.id,
+      paginationDto
+    );
   }
 
   @Get("my-collections-for-nft")
@@ -87,6 +93,23 @@ export class CollectionController {
   })
   async findMyCollectionsForNFT(@Request() req): Promise<Collection[]> {
     return this.collectionService.findMyCollectionsForNFT(req.user.id);
+  }
+
+  @Get("user/:userId")
+  @ApiOperation({ summary: "Get collections by user ID (public)" })
+  @ApiResponse({
+    status: 200,
+    description: "List of user's collections with pagination",
+    type: PaginatedResponseDto<Collection>,
+  })
+  async findByUser(
+    @Param("userId", ParseIntPipe) userId: number,
+    @Query() paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<Collection>> {
+    return this.collectionService.findByCreatorWithPagination(
+      userId,
+      paginationDto
+    );
   }
 
   @Get(":id")

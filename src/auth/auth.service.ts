@@ -1,10 +1,10 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { UsersService } from "../users/users.service";
+import { UsersService } from "@/users/users.service";
 import { LoginDto } from "./dto/login.dto";
 import { VerifyDto, VerifyResponseDto } from "./dto/verify.dto";
 import { NonceResponseDto } from "./dto/nonce.dto";
-import { User, UserRole } from "../common/entities";
+import { User, UserRole } from "@/common/entities";
 import { SiweMessage } from "siwe";
 
 @Injectable()
@@ -63,6 +63,11 @@ export class AuthService {
         username: user.username,
         role: user.role,
         description: user.description,
+        avatar: user.avatar,
+        banner: user.banner,
+        facebookUrl: user.facebookUrl,
+        instagramUrl: user.instagramUrl,
+        youtubeUrl: user.youtubeUrl,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       },
@@ -86,6 +91,11 @@ export class AuthService {
         username: user.username,
         role: user.role,
         description: user.description,
+        avatar: user.avatar,
+        banner: user.banner,
+        facebookUrl: user.facebookUrl,
+        instagramUrl: user.instagramUrl,
+        youtubeUrl: user.youtubeUrl,
       };
     }
     return null;
@@ -153,6 +163,11 @@ export class AuthService {
           username: user.username,
           role: user.role,
           description: user.description,
+          avatar: user.avatar,
+          banner: user.banner,
+          facebookUrl: user.facebookUrl,
+          instagramUrl: user.instagramUrl,
+          youtubeUrl: user.youtubeUrl,
           createdAt: user.createdAt.toISOString(),
           updatedAt: user.updatedAt.toISOString(),
         },

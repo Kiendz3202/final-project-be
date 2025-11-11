@@ -5,9 +5,14 @@ import {
   IsBoolean,
   IsPositive,
   IsUrl,
+  IsInt,
+  Min,
+  Max,
+  IsNotEmpty,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
+import { MIN_ROYALTY_PERCENT, MAX_ROYALTY_PERCENT } from "@/common/constants";
 
 export class CreateNFTDto {
   @ApiProperty({ description: "NFT name", example: "Cool NFT #123" })
@@ -29,8 +34,19 @@ export class CreateNFTDto {
       "https://your-s3-bucket.s3.amazonaws.com/nfts/1234567890-image.jpg",
   })
   @IsString()
-  @IsUrl()
+  @IsNotEmpty()
   imageUrl: string;
+
+  @ApiProperty({
+    description: "Per-NFT royalty percent (0-100). Optional; null by default",
+    required: false,
+    example: 5,
+  })
+  @IsInt()
+  @Min(MIN_ROYALTY_PERCENT)
+  @Max(MAX_ROYALTY_PERCENT)
+  @IsOptional()
+  royaltyPercent?: number;
 
   @ApiProperty({
     description: "Price in ETH",

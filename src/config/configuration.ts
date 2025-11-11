@@ -1,5 +1,5 @@
 export default () => ({
-  port: parseInt(process.env.PORT, 10) || 3001,
+  port: parseInt(process.env.PORT, 10) || 5000,
   database: {
     host: process.env.DATABASE_HOST || "localhost",
     port: parseInt(process.env.DATABASE_PORT, 10) || 5432,
@@ -22,5 +22,8 @@ export default () => ({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
     bucketName: process.env.AWS_S3_BUCKET_NAME || "your-s3-bucket",
+  },
+  app: {
+    baseUrl: process.env.APP_BASE_URL, // e.g., "https://api.yourdomain.com" or "http://localhost:5000"
   },
 });

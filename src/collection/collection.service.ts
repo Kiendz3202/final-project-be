@@ -5,14 +5,15 @@ import {
 } from "@nestjs/common";
 import { CreateCollectionDto } from "./dto/create-collection.dto";
 import { UpdateCollectionDto } from "./dto/update-collection.dto";
-import { Collection } from "../common/entities";
-import { CollectionRepository } from "../common/repositories/collection.repository";
-import { UserRepository } from "../common/repositories/user.repository";
+import { Collection } from "@/common/entities";
+import { CollectionRepository } from "@/common/repositories/collection.repository";
+import { UserRepository } from "@/common/repositories/user.repository";
 import {
   PaginationDto,
   PaginatedResponseDto,
-} from "../common/dto/pagination.dto";
-import { BlockchainService } from "../common/services/blockchain.service";
+} from "@/common/dto/pagination.dto";
+import { BlockchainService } from "@/common/services/blockchain.service";
+import { DEFAULT_COLLECTION_ROYALTY_PERCENT } from "@/common/constants";
 
 @Injectable()
 export class CollectionService {
@@ -38,6 +39,10 @@ export class CollectionService {
     const collection = this.collectionRepository.create({
       ...createCollectionDto,
       creatorId,
+      royaltyPercent:
+        createCollectionDto.royaltyPercent !== undefined
+          ? createCollectionDto.royaltyPercent
+          : DEFAULT_COLLECTION_ROYALTY_PERCENT,
     });
 
     return this.collectionRepository.save(collection);
@@ -52,7 +57,7 @@ export class CollectionService {
   }
 
   async findOne(id: number): Promise<Collection> {
-    const collection = await this.collectionRepository.findWithStats(id);
+    const collection = await this.collectionRepository.findById(id);
     if (!collection) {
       throw new NotFoundException(`Collection with ID ${id} not found`);
     }
@@ -63,18 +68,26 @@ export class CollectionService {
     return this.collectionRepository.findByCreator(creatorId);
   }
 
+  async findByCreatorWithPagination(
+    creatorId: number,
+    paginationDto: PaginationDto
+  ): Promise<PaginatedResponseDto<Collection>> {
+    return this.collectionRepository.findByCreatorWithPagination(
+      creatorId,
+      paginationDto
+    );
+  }
+
   async findMyCollectionsForNFT(creatorId: number): Promise<Collection[]> {
     // Return only collections that the user can add NFTs to (their own collections)
-    return this.collectionRepository.findByCreator(creatorId);
+    return this.findByCreator(creatorId);
   }
 
   async canUserAddNFTToCollection(
     collectionId: number,
     userId: number
   ): Promise<boolean> {
-    const collection = await this.collectionRepository.findOne({
-      where: { id: collectionId },
-    });
+    const collection = await this.collectionRepository.findById(collectionId);
 
     if (!collection) {
       return false;

@@ -8,6 +8,7 @@ import {
 } from "typeorm";
 import { ApiProperty } from "@nestjs/swagger";
 import { NFT } from "./nft.entity";
+import { Collection } from "./collection.entity";
 
 export enum UserRole {
   USER = "user",
@@ -24,7 +25,7 @@ export class User {
     description: "Wallet address",
     example: "0x1234567890abcdef1234567890abcdef12345678",
   })
-  @Column({ unique: true })
+  @Column({ unique: true, name: "wallet_address" })
   walletAddress: string;
 
   @ApiProperty({
@@ -64,11 +65,19 @@ export class User {
   avatar: string;
 
   @ApiProperty({
+    description: "User banner URL",
+    example: "https://example.com/banner.jpg",
+    required: false,
+  })
+  @Column({ nullable: true })
+  banner: string;
+
+  @ApiProperty({
     description: "Facebook profile URL",
     example: "https://facebook.com/username",
     required: false,
   })
-  @Column({ nullable: true })
+  @Column({ nullable: true, name: "facebook_url" })
   facebookUrl: string;
 
   @ApiProperty({
@@ -76,7 +85,7 @@ export class User {
     example: "https://instagram.com/username",
     required: false,
   })
-  @Column({ nullable: true })
+  @Column({ nullable: true, name: "instagram_url" })
   instagramUrl: string;
 
   @ApiProperty({
@@ -84,20 +93,20 @@ export class User {
     example: "https://youtube.com/@username",
     required: false,
   })
-  @Column({ nullable: true })
+  @Column({ nullable: true, name: "youtube_url" })
   youtubeUrl: string;
 
   @ApiProperty({ description: "Creation timestamp" })
-  @CreateDateColumn()
+  @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 
   @ApiProperty({ description: "Last update timestamp" })
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
   @OneToMany(() => NFT, (nft) => nft.owner)
   nfts: NFT[];
 
-  @OneToMany("Collection", "creator")
-  ownedCollections: any[];
+  @OneToMany(() => Collection, (collection) => collection.creator)
+  ownedCollections: Collection[];
 }

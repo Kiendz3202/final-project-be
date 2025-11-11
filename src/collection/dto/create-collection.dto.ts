@@ -3,12 +3,13 @@ import {
   IsUrl,
   IsOptional,
   IsNotEmpty,
-  IsIn,
   IsInt,
   Min,
+  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty } from "@nestjs/swagger";
+import { MIN_ROYALTY_PERCENT, MAX_ROYALTY_PERCENT } from "@/common/constants";
 
 export class CreateCollectionDto {
   @ApiProperty({
@@ -19,6 +20,11 @@ export class CreateCollectionDto {
   @IsNotEmpty()
   name: string;
 
+  @ApiProperty({ description: "Collection symbol", example: "GEN" })
+  @IsString()
+  @IsNotEmpty()
+  symbol: string;
+
   @ApiProperty({
     description: "Collection description",
     example: "A collection of amazing digital art pieces",
@@ -28,54 +34,33 @@ export class CreateCollectionDto {
   description: string;
 
   @ApiProperty({
-    description: "Collection banner image URL",
-    example: "https://s3.amazonaws.com/bucket/banner.jpg",
+    description: "Collection image URL",
+    example:
+      "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=800&h=300&fit=crop",
   })
-  @IsUrl()
-  bannerImageUrl: string;
-
-  @ApiProperty({
-    description: "Collection logo image URL",
-    example: "https://s3.amazonaws.com/bucket/logo.jpg",
-  })
-  @IsUrl()
-  logoImageUrl: string;
-
-  @ApiProperty({
-    description: "Collection website URL",
-    example: "https://coolnftcollection.com",
-    required: false,
-  })
-  @IsOptional()
-  @IsUrl()
-  websiteUrl?: string;
-
-  @ApiProperty({
-    description: "Collection Twitter URL",
-    example: "https://twitter.com/coolnftcollection",
-    required: false,
-  })
-  @IsOptional()
-  @IsUrl()
-  twitterUrl?: string;
-
-  @ApiProperty({
-    description: "Collection Discord URL",
-    example: "https://discord.gg/coolnftcollection",
-    required: false,
-  })
-  @IsOptional()
-  @IsUrl()
-  discordUrl?: string;
+  @IsString()
+  @IsNotEmpty()
+  imageUrl: string;
 
   // Chain is fixed to BSC testnet (97); not exposed in DTO
 
   @ApiProperty({
-    description: "Collection contract address",
-    example: "0xabc...",
+    description: "Default royalty percent (0-100). Defaults to 1% if omitted",
+    example: 1,
     required: false,
   })
+  @IsInt()
+  @Min(MIN_ROYALTY_PERCENT)
+  @Max(MAX_ROYALTY_PERCENT)
   @IsOptional()
+  royaltyPercent?: number;
+
+  @ApiProperty({
+    description: "Collection contract address",
+    example: "0xabc...",
+    required: true,
+  })
   @IsString()
-  contractAddress?: string;
+  @IsNotEmpty()
+  contractAddress: string;
 }

@@ -4,12 +4,13 @@ import { NFTController } from "./nft.controller";
 import {
   NFTRepository,
   UserRepository,
-  NFTHistoryRepository,
   CollectionRepository,
-} from "../common/repositories";
-import { S3Service } from "../common/services/s3.service";
-import { CollectionService } from "../collection/collection.service";
-import { BlockchainService } from "../common/services/blockchain.service";
+  NFTEventRepository,
+} from "@/common/repositories";
+import { S3Service } from "@/common/services/s3.service";
+import { CollectionService } from "@/collection/collection.service";
+import { BlockchainService } from "@/common/services/blockchain.service";
+import { DeploymentService } from "@/common/services/deployment.service";
 
 @Module({
   imports: [],
@@ -18,11 +19,12 @@ import { BlockchainService } from "../common/services/blockchain.service";
     NFTService,
     NFTRepository,
     UserRepository,
-    NFTHistoryRepository,
     CollectionRepository,
+    NFTEventRepository,
     CollectionService,
     S3Service,
     BlockchainService,
+    DeploymentService,
   ],
   exports: [NFTService],
 })
