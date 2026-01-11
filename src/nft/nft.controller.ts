@@ -24,6 +24,8 @@ import { ConfirmTxDto } from "./dto/confirm-tx.dto";
 import { ListNFTDto } from "./dto/list-nft.dto";
 import { ConfirmPurchaseDto } from "./dto/confirm-purchase.dto";
 import { NFT, NFTEvent, NFTEventType } from "@/common/entities";
+import { GetCollectionEventsDto } from "./dto/get-collection-events.dto";
+import { GetNFTEventsDto } from "./dto/get-nft-events.dto";
 import {
   PaginationDto,
   PaginatedResponseDto,
@@ -58,14 +60,21 @@ export class NFTController {
   }
 
   @Get()
-  @ApiOperation({ summary: "Get all NFTs with pagination" })
+  @ApiOperation({ summary: "Get all NFTs with pagination and filters" })
   @ApiResponse({
     status: 200,
     description: "List of all NFTs with pagination",
     type: PaginatedResponseDto<NFT>,
   })
   async findAll(
-    @Query() paginationDto: PaginationDto
+    @Query()
+    paginationDto: PaginationDto & {
+      isForSale?: boolean;
+      ownerId?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      sort?: "priceAsc" | "priceDesc";
+    }
   ): Promise<PaginatedResponseDto<NFT>> {
     return this.nftService.findAll(paginationDto);
   }
@@ -79,7 +88,14 @@ export class NFTController {
   })
   async findByCollection(
     @Param("collectionId", ParseIntPipe) collectionId: number,
-    @Query() paginationDto: PaginationDto
+    @Query()
+    paginationDto: PaginationDto & {
+      isForSale?: boolean;
+      ownerId?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      sort?: "priceAsc" | "priceDesc";
+    }
   ): Promise<PaginatedResponseDto<NFT>> {
     return this.nftService.findByCollection(collectionId, paginationDto);
   }
@@ -286,13 +302,15 @@ export class NFTController {
   @ApiResponse({ status: 404, description: "NFT not found" })
   async getNFTEvents(
     @Param("id", ParseIntPipe) id: number,
-    @Query() paginationDto: PaginationDto
+    @Query() query: GetNFTEventsDto
   ): Promise<PaginatedResponseDto<NFTEvent>> {
     // Verify NFT exists
     await this.nftService.findOne(id);
-    return this.nftService.getNFTEvents(id, paginationDto) as Promise<
-      PaginatedResponseDto<NFTEvent>
-    >;
+    const { eventType, ...pagination } = query;
+    return this.nftService.getNFTEvents(id, {
+      pagination: pagination as PaginationDto,
+      eventType,
+    }) as Promise<PaginatedResponseDto<NFTEvent>>;
   }
 
   @Get("events/address/:address")
@@ -326,5 +344,63 @@ export class NFTController {
     return this.nftService.getEventsByType(eventType, paginationDto) as Promise<
       PaginatedResponseDto<NFTEvent>
     >;
+  }
+
+  @Get("events/collection/:collectionId")
+  @ApiOperation({
+    summary: "Get NFT events by collection ID (public, supports types filter)",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "List of NFT events for all NFTs in the collection with pagination",
+    type: PaginatedResponseDto<NFTEvent>,
+  })
+  async getEventsByCollection(
+    @Param("collectionId", ParseIntPipe) collectionId: number,
+    @Query() query: GetCollectionEventsDto
+  ): Promise<PaginatedResponseDto<NFTEvent>> {
+    const allowedTypes = Object.values(NFTEventType);
+    const typeList = (query.types || "")
+      .split(",")
+      .map((t) => t.trim().toUpperCase())
+      .filter((t): t is NFTEventType =>
+        allowedTypes.includes(t as NFTEventType)
+      );
+    return this.nftService.getEventsByCollection(collectionId, {
+      pagination: query,
+      types: typeList.length ? typeList : undefined,
+    }) as unknown as Promise<PaginatedResponseDto<NFTEvent>>;
+  }
+
+  @Get(":id/price-history")
+  @ApiOperation({
+    summary: "Get NFT price history for chart (TRANSFER events only - sales)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Price history data from TRANSFER events (sales only)",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp: { type: "string", format: "date-time" },
+          priceBNB: { type: "number" },
+          priceWei: { type: "string" },
+          eventType: { type: "string", enum: ["TRANSFER"] },
+          txHash: { type: "string" },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: "NFT not found" })
+  async getPriceHistory(
+    @Param("id", ParseIntPipe) id: number,
+    @Query("range") range?: string
+  ) {
+    await this.nftService.findOne(id); // Verify NFT exists
+
+    return this.nftService.getPriceHistory(id, range);
   }
 }

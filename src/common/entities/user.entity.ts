@@ -49,6 +49,14 @@ export class User {
   role: UserRole;
 
   @ApiProperty({
+    description: "User account status",
+    example: true,
+    default: true,
+  })
+  @Column({ type: "boolean", default: true, name: "is_active" })
+  isActive: boolean;
+
+  @ApiProperty({
     description: "User description/bio",
     example: "Digital artist and NFT collector",
     required: false,

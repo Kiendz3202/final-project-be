@@ -9,6 +9,7 @@ import { NFTModule } from "@/nft/nft.module";
 import { CollectionModule } from "@/collection/collection.module";
 import { UploadModule } from "@/upload/upload.module";
 import { AdminModule } from "@/admin/admin.module";
+import { DashboardModule } from "@/dashboard/dashboard.module";
 import { RedisModule } from "@/redis/redis.module";
 import { User, NFT, Collection, NFTEvent } from "@/common/entities";
 
@@ -29,7 +30,7 @@ import { User, NFT, Collection, NFTEvent } from "@/common/entities";
         database: configService.get("database.name"),
         entities: [User, NFT, Collection, NFTEvent],
         synchronize: true, // Don't use in production
-        logging: true,
+        logging: false, // Disable SQL query logging
       }),
       inject: [ConfigService],
     }),
@@ -49,6 +50,7 @@ import { User, NFT, Collection, NFTEvent } from "@/common/entities";
     CollectionModule,
     UploadModule,
     AdminModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

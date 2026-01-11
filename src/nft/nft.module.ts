@@ -11,9 +11,11 @@ import { S3Service } from "@/common/services/s3.service";
 import { CollectionService } from "@/collection/collection.service";
 import { BlockchainService } from "@/common/services/blockchain.service";
 import { DeploymentService } from "@/common/services/deployment.service";
+import { CacheService } from "@/common/services/cache.service";
+import { RedisModule } from "@/redis/redis.module";
 
 @Module({
-  imports: [],
+  imports: [RedisModule],
   controllers: [NFTController],
   providers: [
     NFTService,
@@ -25,6 +27,7 @@ import { DeploymentService } from "@/common/services/deployment.service";
     S3Service,
     BlockchainService,
     DeploymentService,
+    CacheService,
   ],
   exports: [NFTService],
 })

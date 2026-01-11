@@ -10,7 +10,7 @@ import { UserRepository } from "@/common/repositories";
 
 @Injectable()
 export class UsersService {
-  constructor(private userRepository: UserRepository) {}
+  constructor(private userRepository: UserRepository) { }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     // Normalize wallet address to lowercase
@@ -48,8 +48,24 @@ export class UsersService {
     return savedUser;
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.findAllUsers();
+  async findAll(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await this.userRepository.findAndCount({
+      skip,
+      take: limit,
+      order: { createdAt: "DESC" },
+    });
+
+    return {
+      data: users,
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: number): Promise<User> {
@@ -60,6 +76,7 @@ export class UsersService {
         "walletAddress",
         "username",
         "role",
+        "isActive",
         "description",
         "avatar",
         "banner",
@@ -87,10 +104,39 @@ export class UsersService {
     return this.userRepository.findByUsername(username);
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(
+    id: number,
+    updateUserDto: UpdateUserDto,
+    currentUser?: User
+  ): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    // Permission checks if currentUser context is available
+    if (currentUser) {
+      // 1. Only Admins can change roles
+      if (updateUserDto.role && currentUser.role !== UserRole.ADMIN) {
+        throw new ConflictException("Only admins can change roles");
+      }
+
+      // 2. Prevent modifying own Role or Status
+      if (currentUser.id === id) {
+        if (updateUserDto.role) {
+          throw new ConflictException("You cannot change your own role");
+        }
+        if (updateUserDto.isActive !== undefined && updateUserDto.isActive !== user.isActive) {
+          throw new ConflictException("You cannot change your own active status");
+        }
+      }
+    } else {
+      // Legacy safety fallback if no user context
+      if (user.role === UserRole.ADMIN) {
+        throw new ConflictException(
+          "Admin users cannot be modified through this endpoint without auth context"
+        );
+      }
     }
 
     // Check if new username is taken (if provided)
@@ -114,6 +160,7 @@ export class UsersService {
         "walletAddress",
         "username",
         "role",
+        "isActive",
         "description",
         "avatar",
         "banner",

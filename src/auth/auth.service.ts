@@ -12,7 +12,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService
-  ) {}
+  ) { }
 
   async login(
     loginDto: LoginDto
@@ -44,6 +44,13 @@ export class AuthService {
         walletAddress: normalizedAddress,
         role: UserRole.USER,
       });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        "Your account has been deactivated. Please contact support."
+      );
     }
 
     // Generate JWT token
@@ -144,6 +151,13 @@ export class AuthService {
           walletAddress: walletAddress,
           role: UserRole.USER,
         });
+      }
+
+      // Check if user is active
+      if (!user.isActive) {
+        throw new UnauthorizedException(
+          "Your account has been deactivated. Please contact support."
+        );
       }
 
       // Generate JWT token

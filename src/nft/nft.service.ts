@@ -22,6 +22,7 @@ import { NFTEvent, NFTEventType } from "@/common/entities";
 import { S3Service } from "@/common/services/s3.service";
 import { BlockchainService } from "@/common/services/blockchain.service";
 import { DeploymentService } from "@/common/services/deployment.service";
+import { CacheService } from "@/common/services/cache.service";
 
 @Injectable()
 export class NFTService {
@@ -32,7 +33,8 @@ export class NFTService {
     private nftEventRepository: NFTEventRepository,
     private s3Service: S3Service,
     private blockchainService: BlockchainService,
-    private deploymentService: DeploymentService
+    private deploymentService: DeploymentService,
+    private cacheService: CacheService
   ) {}
 
   /**
@@ -46,7 +48,10 @@ export class NFTService {
     priceWei: string | null,
     txHash: string,
     receipt: ethers.providers.TransactionReceipt,
-    logIndex?: number
+    logIndex?: number,
+    platformFeeWei?: string | null,
+    royaltyAmountWei?: string | null,
+    royaltyReceiver?: string | null
   ): Promise<void> {
     // Check if event already exists (idempotency)
     const existingEvent = await this.nftEventRepository.findByTxHashAndLogIndex(
@@ -67,6 +72,9 @@ export class NFTService {
       fromAddress,
       toAddress,
       priceWei,
+      platformFeeWei: platformFeeWei ?? null,
+      royaltyAmountWei: royaltyAmountWei ?? null,
+      royaltyReceiver: royaltyReceiver ? royaltyReceiver.toLowerCase() : null,
       txHash,
       logIndex: logIndex ?? 0,
       blockNumber: receipt.blockNumber,
@@ -120,21 +128,77 @@ export class NFTService {
 
     const savedNFT = await this.nftRepository.save(nft);
 
+    // Invalidate NFT list cache (new NFT added)
+    await this.cacheService.invalidateAll();
+
     return savedNFT;
   }
 
   async findAll(
-    paginationDto: PaginationDto
+    paginationDto: PaginationDto & {
+      isForSale?: boolean;
+      ownerId?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      sort?: "priceAsc" | "priceDesc";
+    }
   ): Promise<PaginatedResponseDto<NFT>> {
-    const { page = 1, limit = 10, search } = paginationDto;
+    const startTime = Date.now();
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      isForSale,
+      ownerId,
+      minPrice,
+      maxPrice,
+      sort,
+    } = paginationDto;
+
+    // Check if this is a default request (no filters) - only cache default requests
+    const isDefault = this.cacheService.isNFTListDefault({
+      page,
+      limit,
+      search,
+      isForSale,
+      ownerId,
+      minPrice,
+      maxPrice,
+      sort,
+    });
+
+    // Pre-calculate cache key if default (used for both get and set)
+    let cacheKey: string | null = null;
+    if (isDefault) {
+      const pageNum = Number(page) || 1;
+      const limitNum = Number(limit) || 12;
+      cacheKey = this.cacheService.generateNFTListDefaultKey(pageNum, limitNum);
+
+      // Try to get from cache
+      const cached =
+        await this.cacheService.get<PaginatedResponseDto<NFT>>(cacheKey);
+
+      if (cached) {
+        const totalTime = Date.now() - startTime;
+        console.log(
+          `[CACHE] NFT List - HIT - Key: ${cacheKey} - Time: ${totalTime}ms`
+        );
+        return cached;
+      }
+    }
+
+    const dbStartTime = Date.now();
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.nftRepository
       .createQueryBuilder("nft")
       .leftJoinAndSelect("nft.owner", "owner")
-      .leftJoinAndSelect("nft.collection", "collection")
-      .where("nft.isForSale = :isForSale", { isForSale: true })
-      .orderBy("nft.createdAt", "DESC");
+      .leftJoinAndSelect("nft.collection", "collection");
+
+    // Only filter by isForSale if explicitly specified
+    if (isForSale !== undefined) {
+      queryBuilder.where("nft.isForSale = :isForSale", { isForSale });
+    }
 
     if (search) {
       queryBuilder.andWhere(
@@ -143,14 +207,39 @@ export class NFTService {
       );
     }
 
+    if (ownerId !== undefined) {
+      queryBuilder.andWhere("nft.ownerId = :ownerId", { ownerId });
+    }
+
+    if (minPrice !== undefined) {
+      queryBuilder.andWhere("nft.price >= :minPrice", { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      queryBuilder.andWhere("nft.price <= :maxPrice", { maxPrice });
+    }
+
+    if (sort === "priceAsc") {
+      queryBuilder
+        .orderBy("nft.price", "ASC")
+        .addOrderBy("nft.createdAt", "DESC");
+    } else if (sort === "priceDesc") {
+      queryBuilder
+        .orderBy("nft.price", "DESC")
+        .addOrderBy("nft.createdAt", "DESC");
+    } else {
+      queryBuilder.orderBy("nft.createdAt", "DESC");
+    }
+
     const [data, total] = await queryBuilder
       .skip(skip)
       .take(limit)
       .getManyAndCount();
 
+    const dbTime = Date.now() - dbStartTime;
     const totalPages = Math.ceil(total / limit);
 
-    return {
+    const result: PaginatedResponseDto<NFT> = {
       data,
       meta: {
         page,
@@ -161,27 +250,84 @@ export class NFTService {
         hasPrev: page > 1,
       },
     };
+
+    // Cache default requests only (use pre-calculated cacheKey)
+    const totalTime = Date.now() - startTime;
+    if (isDefault && cacheKey) {
+      await this.cacheService.set(cacheKey, result, 60); // 60 seconds TTL
+      console.log(
+        `[CACHE] NFT List - MISS → SET - Key: ${cacheKey} - DB: ${dbTime}ms - Total: ${totalTime}ms - Items: ${data.length}`
+      );
+    } else {
+      console.log(
+        `[CACHE] NFT List - No Cache - DB: ${dbTime}ms - Total: ${totalTime}ms - Items: ${data.length}`
+      );
+    }
+
+    return result;
   }
 
   async findByCollection(
     collectionId: number,
-    paginationDto: PaginationDto
+    paginationDto: PaginationDto & {
+      isForSale?: boolean;
+      ownerId?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      sort?: "priceAsc" | "priceDesc";
+    }
   ): Promise<PaginatedResponseDto<NFT>> {
-    const { page = 1, limit = 10, search } = paginationDto;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      isForSale,
+      ownerId,
+      minPrice,
+      maxPrice,
+      sort,
+    } = paginationDto;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.nftRepository
       .createQueryBuilder("nft")
       .leftJoinAndSelect("nft.owner", "owner")
       .leftJoinAndSelect("nft.collection", "collection")
-      .where("nft.collectionId = :collectionId", { collectionId })
-      .orderBy("nft.createdAt", "DESC");
+      .where("nft.collectionId = :collectionId", { collectionId });
 
     if (search) {
       queryBuilder.andWhere(
         "nft.name ILIKE :search OR nft.description ILIKE :search",
         { search: `%${search}%` }
       );
+    }
+
+    if (isForSale !== undefined) {
+      queryBuilder.andWhere("nft.isForSale = :isForSale", { isForSale });
+    }
+
+    if (ownerId !== undefined) {
+      queryBuilder.andWhere("nft.ownerId = :ownerId", { ownerId });
+    }
+
+    if (minPrice !== undefined) {
+      queryBuilder.andWhere("nft.price >= :minPrice", { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      queryBuilder.andWhere("nft.price <= :maxPrice", { maxPrice });
+    }
+
+    if (sort === "priceAsc") {
+      queryBuilder
+        .orderBy("nft.price", "ASC")
+        .addOrderBy("nft.createdAt", "DESC");
+    } else if (sort === "priceDesc") {
+      queryBuilder
+        .orderBy("nft.price", "DESC")
+        .addOrderBy("nft.createdAt", "DESC");
+    } else {
+      queryBuilder.orderBy("nft.createdAt", "DESC");
     }
 
     const [data, total] = await queryBuilder
@@ -247,6 +393,9 @@ export class NFTService {
     // Update NFT (no history tracking for simple updates)
     await this.nftRepository.update(id, updateNFTDto);
 
+    // Invalidate NFT list cache (NFT metadata changed)
+    await this.cacheService.invalidateAll();
+
     return this.findOne(id);
   }
 
@@ -262,6 +411,9 @@ export class NFTService {
     // await this.s3Service.deleteFile(nft.imageUrl);
 
     await this.nftRepository.remove(nft);
+
+    // Invalidate NFT list cache (NFT deleted)
+    await this.cacheService.invalidateAll();
   }
 
   async confirmMint(
@@ -310,6 +462,9 @@ export class NFTService {
       contractAddress: onChainContractAddress,
       ownerId: requesterUserId,
     });
+
+    // Invalidate NFT list cache (NFT minted, ownerId changed)
+    await this.cacheService.invalidateAll();
 
     // Create MINT event
     // Find the log index for the mint transfer
@@ -407,6 +562,9 @@ export class NFTService {
       price: price,
     });
 
+    // Invalidate NFT list cache (NFT listed, isForSale changed)
+    await this.cacheService.invalidateAll();
+
     // Create LISTED event
     // Find the log index for the NFTListed event
     const marketplaceInterface = new ethers.utils.Interface([
@@ -500,6 +658,9 @@ export class NFTService {
       isForSale: false,
       // Don't set price to null - preserve it for potential relisting
     });
+
+    // Invalidate NFT list cache (NFT unlisted, isForSale changed)
+    await this.cacheService.invalidateAll();
 
     // Create UNLISTED event
     // Find the log index for the NFTUnlisted event
@@ -614,6 +775,9 @@ export class NFTService {
       isForSale: false,
     });
 
+    // Invalidate NFT list cache (NFT purchased, ownerId and isForSale changed)
+    await this.cacheService.invalidateAll();
+
     // Create TRANSFER event
     // Find the log index for the NFTPurchased event
     const marketplaceInterface = new ethers.utils.Interface([
@@ -635,7 +799,10 @@ export class NFTService {
       purchasedEvent.price, // priceWei is purchase price
       txHash,
       receipt,
-      purchasedLogIndex >= 0 ? purchasedLogIndex : 0
+      purchasedLogIndex >= 0 ? purchasedLogIndex : 0,
+      purchasedEvent.platformFee, // platformFeeWei
+      purchasedEvent.royaltyAmount, // royaltyAmountWei
+      purchasedEvent.royaltyReceiver // royaltyReceiver
     );
   }
 
@@ -725,9 +892,12 @@ export class NFTService {
 
   async getNFTEvents(
     nftId: number,
-    paginationDto?: PaginationDto
+    options?: { pagination?: PaginationDto; eventType?: NFTEventType }
   ): Promise<PaginatedResponseDto<NFTEvent> | NFTEvent[]> {
-    return this.nftEventRepository.findByNFT(nftId, paginationDto);
+    return this.nftEventRepository.findByNFT(nftId, {
+      pagination: options?.pagination,
+      eventType: options?.eventType,
+    });
   }
 
   async getEventsByAddress(
@@ -742,5 +912,42 @@ export class NFTService {
     paginationDto?: PaginationDto
   ): Promise<PaginatedResponseDto<NFTEvent> | NFTEvent[]> {
     return this.nftEventRepository.findByEventType(eventType, paginationDto);
+  }
+
+  async getEventsByCollection(
+    collectionId: number,
+    options?: { pagination?: PaginationDto; types?: NFTEventType[] }
+  ): Promise<PaginatedResponseDto<NFTEvent> | NFTEvent[]> {
+    return this.nftEventRepository.findByCollection(collectionId, {
+      pagination: options?.pagination,
+      types: options?.types,
+    });
+  }
+
+  async getPriceHistory(
+    nftId: number,
+    range?: string
+  ): Promise<
+    Array<{
+      timestamp: Date;
+      priceBNB: number;
+      priceWei: string;
+      eventType: NFTEventType;
+      txHash: string;
+    }>
+  > {
+    // Calculate startDate based on range parameter
+    let startDate: Date | undefined;
+    if (range && range !== "All") {
+      const days = parseInt(range.replace("D", ""));
+      if (!isNaN(days)) {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+      }
+    }
+
+    return this.nftEventRepository.findPriceHistory(nftId, {
+      startDate,
+    });
   }
 }

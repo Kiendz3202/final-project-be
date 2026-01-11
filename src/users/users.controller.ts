@@ -9,6 +9,8 @@ import {
   UseGuards,
   ParseIntPipe,
   NotFoundException,
+  Query,
+  Req,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -28,7 +30,7 @@ import { Roles } from "@/auth/decorators/roles.decorator";
 @ApiTags("Users")
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Post()
   @ApiOperation({ summary: "Create a new user" })
@@ -46,14 +48,31 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN) // Only admins can see all users
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get all users (Admin only)" })
-  @ApiResponse({ status: 200, description: "List of all users", type: [User] })
+  @ApiOperation({ summary: "Get all users with pagination (Admin only)" })
+  @ApiResponse({
+    status: 200,
+    description: "Paginated list of users",
+    schema: {
+      type: "object",
+      properties: {
+        data: { type: "array", items: { $ref: "#/components/schemas/User" } },
+        total: { type: "number" },
+        page: { type: "number" },
+        limit: { type: "number" },
+      },
+    },
+  })
   @ApiResponse({
     status: 403,
     description: "Forbidden - Admin access required",
   })
-  async findAll(): Promise<User[]> {
-    return this.usersService.findAll();
+  async findAll(
+    @Query("page") page?: number,
+    @Query("limit") limit?: number
+  ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
+    const pageNum = page ? Number(page) : 1;
+    const limitNum = limit ? Number(limit) : 10;
+    return this.usersService.findAll(pageNum, limitNum);
   }
 
   @Get("stats")
@@ -108,9 +127,10 @@ export class UsersController {
   })
   async update(
     @Param("id", ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto
+    @Body() updateUserDto: UpdateUserDto,
+    @Req() req: any
   ): Promise<User> {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, req.user);
   }
 
   @Delete(":id")

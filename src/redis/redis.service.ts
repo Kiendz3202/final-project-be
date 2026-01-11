@@ -70,4 +70,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async expire(key: string, seconds: number): Promise<boolean> {
     return await this.client.expire(key, seconds);
   }
+
+  /**
+   * Flush all keys in the current database
+   * WARNING: This deletes ALL keys in Redis
+   * Use only if Redis is dedicated to caching
+   */
+  async flushAll(): Promise<void> {
+    await this.client.flushDb();
+  }
 }

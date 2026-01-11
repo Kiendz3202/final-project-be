@@ -71,6 +71,48 @@ export class NFTEvent {
   priceWei: string | null;
 
   @ApiProperty({
+    description: "Platform fee in wei (NULL for non-sale events)",
+    nullable: true,
+    example: "25000000000000000",
+  })
+  @Column({
+    type: "numeric",
+    precision: 78,
+    scale: 0,
+    nullable: true,
+    name: "platform_fee_wei",
+  })
+  platformFeeWei: string | null;
+
+  @ApiProperty({
+    description:
+      "Royalty amount in wei (NULL for non-sale events or no royalty)",
+    nullable: true,
+    example: "10000000000000000",
+  })
+  @Column({
+    type: "numeric",
+    precision: 78,
+    scale: 0,
+    nullable: true,
+    name: "royalty_amount_wei",
+  })
+  royaltyAmountWei: string | null;
+
+  @ApiProperty({
+    description:
+      "Royalty receiver address (NULL for non-sale events or no royalty)",
+    nullable: true,
+    example: "0x789...",
+  })
+  @Column({
+    nullable: true,
+    name: "royalty_receiver",
+    length: 42,
+  })
+  royaltyReceiver: string | null;
+
+  @ApiProperty({
     description: "Transaction hash",
     example: "0xabc123...",
   })

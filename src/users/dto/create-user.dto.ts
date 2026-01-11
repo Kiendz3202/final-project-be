@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsEthereumAddress,
   IsUrl,
+  IsBoolean,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { UserRole } from "@/common/entities";
@@ -34,6 +35,16 @@ export class CreateUserDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+
+  @ApiProperty({
+    description: "User account status",
+    example: true,
+    default: true,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 
   @ApiProperty({
     description: "User description/bio",

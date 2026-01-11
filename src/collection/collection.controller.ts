@@ -27,6 +27,7 @@ import {
   PaginatedResponseDto,
 } from "@/common/dto/pagination.dto";
 import { JwtAuthGuard } from "@/auth/guards/jwt-auth.guard";
+import { CollectionStatsDto } from "./dto/collection-stats.dto";
 
 @ApiTags("Collections")
 @Controller("collections")
@@ -122,6 +123,15 @@ export class CollectionController {
   @ApiResponse({ status: 404, description: "Collection not found" })
   async findOne(@Param("id", ParseIntPipe) id: number): Promise<Collection> {
     return this.collectionService.findOne(id);
+  }
+
+  @Get(":id/stats")
+  @ApiOperation({ summary: "Get aggregated stats for a collection" })
+  @ApiResponse({ status: 200, type: CollectionStatsDto })
+  async getStats(
+    @Param("id", ParseIntPipe) id: number
+  ): Promise<CollectionStatsDto> {
+    return this.collectionService.getStats(id);
   }
 
   @Patch(":id")
